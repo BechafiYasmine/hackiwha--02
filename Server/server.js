@@ -13,7 +13,11 @@ const app = express();
 
 // Middleware
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: ["http://localhost:5000"],
+    methods: ["POST", "GET"],
+    credentials: true
+}));
 app.use(cookieParser());
 
 // Database Connection
@@ -56,6 +60,11 @@ app.post('/login', (req, res) => {
                 if(err) return res.json({Error: "Password compare error"});
 
                 if(response) {
+                    const name = data[0].name;
+                    const token = jwt.sign({name}, "jwt-secret-key", {expiresIn: '1d'});
+                    res.cookie('token', token);
+                    return res.json({Status: "Success"});
+     
                     return res.json({Status: "Success"});
                 } else {
                     return res.json({Error: "Password not matched"});
