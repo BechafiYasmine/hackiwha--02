@@ -28,6 +28,50 @@ const db = mysql.createConnection({
     database: process.env.DB_NAME || 'signup'
 }); 
 
+const verifyUser = (req, res, next) => {
+    const token = req.cookies.token;
+    if (!token) {
+        return res.json({ Error: "You are not authenticated" });
+    } else {
+        jwt.verify(token, "jwt-secret-key", (err, decoded) => {
+            if (err) {
+                return res.json({ Error: "Token is not okay" });
+            } else {
+                req.name = decoded.name;
+                next();
+            }
+        });
+    }
+};
+
+//This middleware function (verifyUser) checks if a JWT token is present in the request cookies.
+
+//If no token is found, it returns an authentication error.
+
+//If a token is present, it verifies it using jwt.verify().
+
+//If verification fails, it sends an error message.
+
+//If the token is valid, it attaches the decoded username (decoded.name) to the request (req.name) and calls next(), allowing the request to continue.
+
+//The app.get() route applies the verifyUser middleware before handling the request.
+
+app.get('/', verifyUser, (req, res) => {
+    return res.json({ Status: "Success", name: req.name });
+});
+
+//app.get('/'): Defines a GET route at the root (/).
+
+//verifyUser: Middleware function that checks authentication before proceeding.
+
+//(req, res) => { ... }: Route handler that executes after authentication.
+
+//res.json({ Status: "Success", name: req.name }):
+
+//If the user is authenticated, it returns a Success response.
+
+//req.name comes from the verifyUser middleware, where the JWT token is decoded.
+
 app.post('/register', (req, res) => {
     const sql = "INSERT INTO login (`name`, `email`, `password`) VALUES (?)";
 
@@ -62,10 +106,10 @@ app.post('/login', (req, res) => {
                 if(response) {
                     const name = data[0].name;
                     const token = jwt.sign({name}, "jwt-secret-key", {expiresIn: '1d'});
-                    res.cookie('token', token);
+                    res.cookie('token', token);//we have 3 to do 
                     return res.json({Status: "Success"});
      
-                    return res.json({Status: "Success"});
+                    
                 } else {
                     return res.json({Error: "Password not matched"});
                 }
@@ -76,7 +120,10 @@ app.post('/login', (req, res) => {
     });
 });
 
-
+app.get('/logout', (req, res) => {
+    res.clearCookie('token'); // Clear the authentication token cookie
+    return res.json({ Status: "Success" });
+});
 db.connect((err) => {
     if (err) {
         console.error('Database connection failed:', err);
