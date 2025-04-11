@@ -14,7 +14,7 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(cors({
-    origin: ["http://localhost:5000"],
+    origin: ["http://localhost:5173"],
     methods: ["POST", "GET"],
     credentials: true
 }));
@@ -57,7 +57,7 @@ const verifyUser = (req, res, next) => {
 //The app.get() route applies the verifyUser middleware before handling the request.
 
 app.get('/', verifyUser, (req, res) => {
-    return res.json({ Status: "Success", name: req.name });
+    return res.json({ Status: "Success", name: req.name , role: req.role});
 });
 
 //app.get('/'): Defines a GET route at the root (/).
@@ -73,7 +73,7 @@ app.get('/', verifyUser, (req, res) => {
 //req.name comes from the verifyUser middleware, where the JWT token is decoded.
 
 app.post('/register', (req, res) => {
-    const sql = "INSERT INTO login (`name`, `email`, `password`) VALUES (?)";
+    const sql = "INSERT INTO users (`name`, `email`, `password`) VALUES (?)";
 
     bcrypt.hash(req.body.password.toString(), salt, (err, hash) => {
         if (err) return res.json({ Error: "Error hashing password" });
@@ -95,7 +95,7 @@ app.post('/register', (req, res) => {
 });
 
 app.post('/login', (req, res) => {
-    const sql = "SELECT * FROM login WHERE email = ?";
+    const sql = "SELECT * FROM users WHERE email = ?";
     db.query(sql, [req.body.email], (err, data) => {
         if(err) return res.json({Error: "Login error in server"});
 
@@ -105,9 +105,10 @@ app.post('/login', (req, res) => {
 
                 if(response) {
                     const name = data[0].name;
-                    const token = jwt.sign({name}, "jwt-secret-key", {expiresIn: '1d'});
+                    const role = data[0].role;
+                    const token = jwt.sign({name , role}, "jwt-secret-key", {expiresIn: '1d'});
                     res.cookie('token', token);//we have 3 to do 
-                    return res.json({Status: "Success"});
+                    return res.json({Status: "Success" , name: name, role: role});
      
                     
                 } else {
@@ -142,5 +143,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
-
 

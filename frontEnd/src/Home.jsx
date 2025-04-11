@@ -26,7 +26,7 @@ function Home() {
     }, []);
 
     const handleDelete = () => {
-      axios.get('http://localhost:8081/logout')
+      axios.get('http://localhost:5000/logout')
       .then(res => {
           location.reload(true);
       }).catch(err => console.log(err));

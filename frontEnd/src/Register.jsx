@@ -1,7 +1,8 @@
-import {React , useState} from 'react'
-import {Link} from 'react-router-dom'
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import './Register.css';
+
 function Register() {
   const [values, setValues] = useState({
     name: '',
@@ -9,53 +10,63 @@ function Register() {
     password: ''
   });
 
-  const navigate = useNavigate()
+  const navigate = useNavigate();
+
   const handleSubmit = (event) => {
-      event.preventDefault();
-      axios.post('http://localhost:5000/register', values)
+    event.preventDefault();
+    axios.post('http://localhost:5000/register', values)
       .then(res => {
-          if(res.data.Status === "Success") {
-              navigate('/login')
-          } else {
-              alert("Error");
-          }
+        if (res.data.Status === "Success") {
+          navigate('/login');
+        } else {
+          alert("Error");
+        }
       })
-      .then(err => console.log(err));
-  }
-  
+      .catch(err => console.log(err));
+  };
 
-
-    return (
-      <div className="d-flex justify-content-center align-items-center bg-primary vh-100">
-        <div className="bg-white p-3 rounded w-25">
-          <h2>Sign-Up</h2>
-          <form onSubmit={handleSubmit}>
-            <div className="mb-3">
-              <label htmlFor="name"><strong>Name</strong></label>
-              <input type="text" placeholder="Enter Name" name="name"
-               onChange={(e) => setValues({ ...values, name: e.target.value })}
-               className="form-control rounded-0" />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="email"><strong>Email</strong></label>
-              <input type="email" placeholder="Enter Email" name="email" 
-               onChange={(e) => setValues({ ...values, email: e.target.value })}
-               className="form-control rounded-0" />
-            </div>
-            <div className="mb-3">
-              <label htmlFor="password"><strong>Password</strong></label>
-              <input type="password" placeholder="Enter Password" 
+  return (
+    <div className="register-container">
+      <div className="register-card">
+        <h2 className="register-title">Create Account</h2>
+        <form onSubmit={handleSubmit} className="register-form">
+          <div className="form-group">
+            <label htmlFor="name">Name</label>
+            <input
+              type="text"
+              name="name"
+              placeholder="Your full name"
+              onChange={(e) => setValues({ ...values, name: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              name="email"
+              placeholder="you@example.com"
+              onChange={(e) => setValues({ ...values, email: e.target.value })}
+              required
+            />
+          </div>
+          <div className="form-group">
+            <label htmlFor="password">Password</label>
+            <input
+              type="password"
+              name="password"
+              placeholder="Choose a secure password"
               onChange={(e) => setValues({ ...values, password: e.target.value })}
-              name="password" className="form-control rounded-0" />
-            </div>
-            <button type="submit" className="btn btn-success w-100 rounded-0">Sign up</button>
-            <p>You agree to our terms and policies</p>
-            <Link to="/login" className="btn btn-default border w-100 bg-light rounded-0 text-decoration-none">Sign in</Link>
-          </form>
-        </div>
+              required
+            />
+          </div>
+          <button type="submit" className="submit-btn">Sign Up</button>
+          <p className="terms">By signing up, you agree to our terms and policies.</p>
+          <Link to="/login" className="signin-link">Already have an account? Sign in</Link>
+        </form>
       </div>
-    );
-  }
-  
-  export default Register;
-  
+    </div>
+  );
+}
+
+export default Register;
