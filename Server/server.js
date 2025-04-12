@@ -133,6 +133,24 @@ db.connect((err) => {
     }
 });
 
+//ask the question 
+app.post('/questions', async (req, res) => {
+    const { question, category } = req.body;
+  
+    try {
+        const result = await db.query(
+            'INSERT INTO questions (question, category) VALUES (?, ?)',
+            [question, category]
+          );
+          
+      res.json({ Status: 'Success', insertedId: result.insertId });
+    } catch (err) {
+      console.error('Database error:', err); // show full error in terminal
+      res.status(500).json({ Error: err.message }); // return error message to client
+    }
+  });
+  
+
 // Sample Route
 app.get('/', (req, res) => {
     res.send('Server is running...');
