@@ -94,6 +94,12 @@ app.post('/register', (req, res) => {
     });
 });
 
+app.get('/questions/answered', async (req, res) => {
+    const [rows] = await db.query('SELECT * FROM questions WHERE answer IS NOT NULL ORDER BY created_at DESC');
+    res.json(rows);
+  });
+  
+
 app.post('/login', (req, res) => {
     const sql = "SELECT * FROM users WHERE email = ?";
     db.query(sql, [req.body.email], (err, data) => {
@@ -162,3 +168,19 @@ app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
 
+
+// answer all the questions 
+app.get('/get-all-answers', (req, res) => {
+    const query = 'SELECT id, question, answer FROM questions WHERE answer IS NOT NULL';
+  
+    db.query(query, (err, results) => {
+      if (err) {
+        return res.status(500).json({ message: 'Erreur lors de la récupération des réponses' });
+      }
+      if (results.length === 0) {
+        return res.status(404).json({ message: 'Aucune réponse trouvée' });
+      }
+      res.status(200).json(results);  // Send all answers with their respective questions
+    });
+  });
+  
