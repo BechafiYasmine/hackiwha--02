@@ -1,186 +1,204 @@
 import express from 'express';
-import mysql from 'mysql';
 import cors from 'cors';
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcrypt';
-import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
-const salt =10;
+import mysql from 'mysql2/promise';
 
 dotenv.config();
 
+////////////////////////////////////
+//  1) MySQL Connection Pool
+////////////////////////////////////
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
+
+////////////////////////////////////
+//  2) Express App Setup
+////////////////////////////////////
 const app = express();
-
-// Middleware
+app.use(cors());
 app.use(express.json());
-app.use(cors({
-    origin: ["http://localhost:5173"],
-    methods: ["POST", "GET"],
-    credentials: true
-}));
-app.use(cookieParser());
 
-// Database Connection
-const db = mysql.createConnection({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASS || 'bechafiyasmine',
-    database: process.env.DB_NAME || 'signup'
-}); 
+////////////////////////////////////
+//  3) Routes
+////////////////////////////////////
 
-const verifyUser = (req, res, next) => {
-    const token = req.cookies.token;
-    if (!token) {
-        return res.json({ Error: "You are not authenticated" });
-    } else {
-        jwt.verify(token, "jwt-secret-key", (err, decoded) => {
-            if (err) {
-                return res.json({ Error: "Token is not okay" });
-            } else {
-                req.name = decoded.name;
-                next();
-            }
-        });
-    }
-};
-
-//This middleware function (verifyUser) checks if a JWT token is present in the request cookies.
-
-//If no token is found, it returns an authentication error.
-
-//If a token is present, it verifies it using jwt.verify().
-
-//If verification fails, it sends an error message.
-
-//If the token is valid, it attaches the decoded username (decoded.name) to the request (req.name) and calls next(), allowing the request to continue.
-
-//The app.get() route applies the verifyUser middleware before handling the request.
-
-app.get('/', verifyUser, (req, res) => {
-    return res.json({ Status: "Success", name: req.name , role: req.role});
+// A) Appointments
+app.post('/api/appointments', async (req, res) => {
+  const { specialistId, date, time } = req.body;
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO appointments (specialistId, date, time) VALUES (?, ?, ?)',
+      [specialistId, date, time]
+    );
+    res.status(201).json({ id: result.insertId, specialistId, date, time });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-//app.get('/'): Defines a GET route at the root (/).
-
-//verifyUser: Middleware function that checks authentication before proceeding.
-
-//(req, res) => { ... }: Route handler that executes after authentication.
-
-//res.json({ Status: "Success", name: req.name }):
-
-//If the user is authenticated, it returns a Success response.
-
-//req.name comes from the verifyUser middleware, where the JWT token is decoded.
-
-app.post('/register', (req, res) => {
-    const sql = "INSERT INTO users (`name`, `email`, `password`) VALUES (?)";
-
-    bcrypt.hash(req.body.password.toString(), salt, (err, hash) => {
-        if (err) return res.json({ Error: "Error hashing password" });
-
-        const values = [
-            req.body.name,
-            req.body.email,
-            hash
-        ];
-
-        db.query(sql, [values], (err, result) => {
-            if (err) {
-                console.error("SQL Error: ", err);  // Ajoute ceci pour voir l'erreur dans le terminal
-                return res.json({ Error: err.sqlMessage });
-            }
-            return res.json({ Status: "Success" });
-        });
-    });
-});
-
-app.get('/questions/answered', async (req, res) => {
-    const [rows] = await db.query('SELECT * FROM questions WHERE answer IS NOT NULL ORDER BY created_at DESC');
+app.get('/api/appointments', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM appointments');
     res.json(rows);
-  });
-  
-
-app.post('/login', (req, res) => {
-    const sql = "SELECT * FROM users WHERE email = ?";
-    db.query(sql, [req.body.email], (err, data) => {
-        if(err) return res.json({Error: "Login error in server"});
-
-        if(data.length > 0) {
-            bcrypt.compare(req.body.password.toString(), data[0].password, (err, response) => {
-                if(err) return res.json({Error: "Password compare error"});
-
-                if(response) {
-                    const name = data[0].name;
-                    const role = data[0].role;
-                    const token = jwt.sign({name , role}, "jwt-secret-key", {expiresIn: '1d'});
-                    res.cookie('token', token);//we have 3 to do 
-                    return res.json({Status: "Success" , name: name, role: role});
-     
-                    
-                } else {
-                    return res.json({Error: "Password not matched"});
-                }
-            })
-        } else {
-            return res.json({Error: "No email existed"});
-        }
-    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-app.get('/logout', (req, res) => {
-    res.clearCookie('token'); // Clear the authentication token cookie
-    return res.json({ Status: "Success" });
-});
-db.connect((err) => {
-    if (err) {
-        console.error('Database connection failed:', err);
-    } else {
-        console.log('Connected to MySQL database');
-    }
+// B) Behaviors
+app.post('/api/behaviors', async (req, res) => {
+  const { text, date, category } = req.body;
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO behaviors (text, date, category) VALUES (?, ?, ?)',
+      [text, date, category]
+    );
+    res.status(201).json({ id: result.insertId, text, date, category });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-//ask the question 
-app.post('/questions', async (req, res) => {
-    const { question, category } = req.body;
-  
+app.get('/api/behaviors', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM behaviors');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// C) Progress
+app.post('/api/progress', async (req, res) => {
+  const { social, language, motor } = req.body;
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO progress (social, language, motor) VALUES (?, ?, ?)',
+      [social, language, motor]
+    );
+    res.status(201).json({ id: result.insertId, social, language, motor });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/progress', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM progress');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// D) Recommendations
+app.post('/api/recommendations', async (req, res) => {
+  const { title, description, specialist, status, date } = req.body;
+  try {
+    const [result] = await pool.query(
+      'INSERT INTO recommendations (title, description, specialist, status, date) VALUES (?, ?, ?, ?, ?)',
+      [title, description, specialist, status || 'new', date]
+    );
+    res.status(201).json({ id: result.insertId, title, description, specialist, status, date });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/recommendations', async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM recommendations');
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// E) Unified Dashboard Data
+app.get('/api/dashboard', async (req, res) => {
+  try {
+    const [appointments] = await pool.query('SELECT * FROM appointments');
+    const [behaviors] = await pool.query('SELECT * FROM behaviors');
+    const [progress] = await pool.query('SELECT * FROM progress');
+    const [recommendations] = await pool.query('SELECT * FROM recommendations');
+
+    res.json({ appointments, behaviors, progress, recommendations });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// F) Questions
+app.post('/api/questions', async (req, res) => {
+  const { question, category } = req.body;
+  try {
+    const [result] = await pool.execute(
+      'INSERT INTO questions (question, category) VALUES (?, ?)',
+      [question, category]
+    );
+    res.status(201).json({ id: result.insertId, question, category });
+  } catch (error) {
+    console.error('Error inserting question:', error.message);
+    res.status(500).json({ error: 'Database insert failed' });
+  }
+});
+
+app.get('/api/questions', async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT * FROM questions ORDER BY created_at DESC');
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching questions:', error.message);
+    res.status(500).json({ error: 'Failed to fetch questions' });
+  }
+});
+// Wellbeing
+app.post('/api/wellbeing', async (req, res) => {
+    const { stress } = req.body;
     try {
-        const result = await db.query(
-            'INSERT INTO questions (question, category) VALUES (?, ?)',
-            [question, category]
-          );
-          
-      res.json({ Status: 'Success', insertedId: result.insertId });
+      const [result] = await pool.execute('INSERT INTO wellbeing (stress) VALUES (?)', [stress]);
+      res.status(201).json({ id: result.insertId });
     } catch (err) {
-      console.error('Database error:', err); // show full error in terminal
-      res.status(500).json({ Error: err.message }); // return error message to client
+      res.status(500).json({ error: 'Failed to save wellbeing' });
     }
   });
   
-
-// Sample Route
-app.get('/', (req, res) => {
-    res.send('Server is running...');
-});
-
-// Start Server
+  // Goals
+  app.post('/api/goals', async (req, res) => {
+    const { text, done } = req.body;
+    try {
+      const [result] = await pool.execute(
+        'INSERT INTO goals (text, done) VALUES (?, ?)',
+        [text, done || false]
+      );
+      res.status(201).json({ id: result.insertId });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to save goal' });
+    }
+  });
+  
+  // Emotional Journal
+  app.post('/api/emotions', async (req, res) => {
+    const { entry } = req.body;
+    try {
+      const [result] = await pool.execute('INSERT INTO emotions (entry) VALUES (?)', [entry]);
+      res.status(201).json({ id: result.insertId });
+    } catch (err) {
+      res.status(500).json({ error: 'Failed to save journal entry' });
+    }
+  });
+  
+////////////////////////////////////
+//  4) Start Server
+////////////////////////////////////
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`\n[OK] Server is running on port ${PORT}\n`);
 });
-
-
-// answer all the questions 
-app.get('/get-all-answers', (req, res) => {
-    const query = 'SELECT id, question, answer FROM questions WHERE answer IS NOT NULL';
-  
-    db.query(query, (err, results) => {
-      if (err) {
-        return res.status(500).json({ message: 'Erreur lors de la récupération des réponses' });
-      }
-      if (results.length === 0) {
-        return res.status(404).json({ message: 'Aucune réponse trouvée' });
-      }
-      res.status(200).json(results);  // Send all answers with their respective questions
-    });
-  });
-  
